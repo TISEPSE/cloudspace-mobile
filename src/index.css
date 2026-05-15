@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/* Class-based dark mode — toggled by adding .dark to <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #258cf4;
+  --color-background-light: #f5f7f8;
+  --color-background-dark: #101922;
+  --color-surface-dark: #1A2633;
+  --color-border-dark: #283039;
+  --font-display: "Inter", sans-serif;
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-display);
+  }
+
+  /* Taille de base des icônes — modifier --icon-size pour ajuster globalement */
+  :root {
+    --icon-size: 18px;
+  }
+
+  .material-symbols-outlined {
+    font-size: var(--icon-size);
+    line-height: 1;
+  }
+}
+
+/* ── Per-theme CSS variable overrides ── */
+
+:root[data-theme="midnight"] {
+  --color-primary: #6366f1;
+  --color-background-dark: #0a0e1a;
+  --color-surface-dark: #111827;
+  --color-border-dark: #1f2937;
+}
+
+:root[data-theme="nord"] {
+  --color-primary: #88c0d0;
+  --color-background-dark: #2e3440;
+  --color-surface-dark: #3b4252;
+  --color-border-dark: #434c5e;
+}
+
+:root[data-theme="sunset"] {
+  --color-primary: #f97316;
+  --color-background-dark: #1a1019;
+  --color-surface-dark: #241520;
+  --color-border-dark: #3a1f33;
+}
+
+:root[data-theme="forest"] {
+  --color-primary: #34d399;
+  --color-background-dark: #0f1a14;
+  --color-surface-dark: #162b1e;
+  --color-border-dark: #1e3d2b;
+}
+
+:root[data-theme="ocean"] {
+  --color-primary: #06b6d4;
+  --color-background-dark: #0a1628;
+  --color-surface-dark: #0f2340;
+  --color-border-dark: #163550;
+}
+
+:root[data-theme="rose"] {
+  --color-primary: #f472b6;
+  --color-background-dark: #1a0f16;
+  --color-surface-dark: #2a1524;
+  --color-border-dark: #3d1d35;
+}
+
+:root[data-theme="dracula"] {
+  --color-primary: #bd93f9;
+  --color-background-dark: #1a1029;
+  --color-surface-dark: #251740;
+  --color-border-dark: #33204f;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
