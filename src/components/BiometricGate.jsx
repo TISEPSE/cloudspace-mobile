@@ -3,89 +3,77 @@ import { isNative } from '../lib/backendUrl'
 import { isBiometricEnabled, unlockRefreshToken, disableBiometric } from '../lib/biometric'
 
 /**
- * BiometricGate : si l'utilisateur a activé le déverrouillage biométrique
- * dans les paramètres, on l'oblige à valider son empreinte avant d'afficher
- * l'application. Sur web (ou si désactivé), on rend directement les enfants.
+ * BiometricGate : si l'utilisateur a activé le déverrouillage biométrique,
+ * on l'oblige à valider son empreinte avant d'afficher l'app.
  *
- * UX : auto-prompt immédiat à l'ouverture. En cas d'échec/annulation,
- * l'utilisateur peut retaper sur la grande icône fingerprint pour relancer.
- * Issue de secours : « Utiliser un mot de passe à la place ».
+ * UX épurée : juste le logo + titre CloudSpace, le prompt OS s'ouvre
+ * automatiquement à l'arrivée sur la page. Si l'utilisateur annule, on
+ * réessaie automatiquement (avec un petit délai pour ne pas spammer).
+ * Aucun bouton visible — on tape juste sur le scanner d'empreinte du
+ * téléphone, ou ailleurs sur l'écran pour relancer la prompt.
  */
 export default function BiometricGate({ children }) {
   const [state, setState] = useState(() => {
     if (!isNative() || !isBiometricEnabled()) return 'unlocked'
     return 'locked'
   })
-  const [error, setError] = useState(null)
   const inFlight = useRef(false)
+  const retryTimerRef = useRef(null)
 
   const tryUnlock = useCallback(async () => {
     if (inFlight.current) return
     inFlight.current = true
-    setError(null)
     try {
       await unlockRefreshToken()
       setState('unlocked')
     } catch (e) {
+      // Annulation utilisateur : on retentera après quelques secondes.
       const msg = (e?.message || '').toLowerCase()
       const cancelled = msg.includes('cancel') || e?.code === 'userCancel'
-      setError(cancelled ? null : (e?.message || 'Échec de l\'authentification'))
-      setState('locked')
+      if (cancelled) {
+        retryTimerRef.current = setTimeout(() => tryUnlock(), 1500)
+      }
+      // En cas d'autre erreur, on laisse l'utilisateur tapper l'écran pour retry.
     } finally {
       inFlight.current = false
     }
   }, [])
 
-  // Auto-prompt à l'ouverture, avec un léger delay pour que la WebView soit prête.
+  // Auto-prompt au montage, avec un léger delay pour la WebView.
   useEffect(() => {
     if (state !== 'locked') return
     const t = setTimeout(() => { tryUnlock() }, 300)
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (state === 'unlocked') return children
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-6">
-      <div className="w-full max-w-md flex flex-col items-center">
-        <div className="flex items-center gap-2 text-primary mb-10">
-          <span className="material-symbols-outlined text-[40px]">cloud_circle</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">CloudSpace</span>
-        </div>
-
-        {/* Grande icône tappable — relance le prompt biométrique */}
-        <button
-          onClick={tryUnlock}
-          aria-label="Déverrouiller avec votre empreinte"
-          className="w-32 h-32 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center mb-8 active:bg-primary/20 active:scale-95 transition-all"
-        >
-          <span className="material-symbols-outlined text-primary text-[80px]" style={{ fontVariationSettings: "'FILL' 1" }}>fingerprint</span>
-        </button>
-
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Application verrouillée</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">
-          Touchez l'icône ci-dessus pour vous identifier.
-        </p>
-
-        {error && (
-          <p className="text-xs text-red-500 mb-4 flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[14px]">error</span>
-            <span>{error}</span>
-          </p>
-        )}
-
-        <button
-          onClick={() => {
-            if (!confirm('Désactiver le déverrouillage biométrique ? Vous devrez vous reconnecter avec votre mot de passe.')) return
-            disableBiometric()
-            setState('unlocked')
-          }}
-          className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline-offset-2 underline mt-4"
-        >
-          Utiliser un mot de passe à la place
-        </button>
+    <div
+      onClick={tryUnlock}
+      className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-6 select-none cursor-pointer"
+    >
+      <div className="flex items-center gap-3 text-primary">
+        <span className="material-symbols-outlined text-[56px]">cloud_circle</span>
+        <span className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">CloudSpace</span>
       </div>
+
+      {/* Filet de secours minimal en bas pour pouvoir sortir de la biométrie */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          if (!confirm('Désactiver le déverrouillage biométrique ?')) return
+          disableBiometric()
+          setState('unlocked')
+        }}
+        className="absolute bottom-8 text-[11px] text-slate-400 dark:text-slate-500 underline underline-offset-2"
+      >
+        Utiliser un mot de passe
+      </button>
     </div>
   )
 }
